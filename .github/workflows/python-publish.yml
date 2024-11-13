@@ -14,30 +14,21 @@ jobs:
     permissions:
       id-token: write
     steps:
-      # checkout repository
-      - uses: actions/checkout@v3
-      # setup lowest supported python version
-      - name: Setup Python
-        uses: actions/setup-python@v4
+      - name: Checkout source
+        uses: actions/checkout@v2
+  
+      - name: Set up Python
+        uses: actions/setup-python@v2
         with:
           python-version: "3.x"
-      # install & configure poetry
-      - name: Install Poetry
-        uses: snok/install-poetry@v1
-        with:
-          version: 1.4.1
-          virtualenvs-create: true
-          virtualenvs-in-project: true
-      # install dependencies
-      - name: Install dependencies
-        run: poetry install --no-interaction --no-ansi --only docs
-      # build package
-      - name: Build package
+  
+      - name: Build source and wheel distributions
         run: |
-          source .venv/bin/activate
-          python build.py
-      # publish package
-      - name: Publish to PyPI
+          python -m pip install --upgrade build twine
+          python -m build
+          twine check --strict dist/*
+      - name: Publish distribution to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
+          user: __token__
           password: ${{ secrets.PYPI_API_TOKEN }}
