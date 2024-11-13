@@ -4,7 +4,11 @@ on:
   push:
     tags:
       - "v*"
-
+      
+permissions:
+  contents: write
+  id-token: write
+   
 jobs:
   build-n-publish:
     name: Build and publish to PyPI
