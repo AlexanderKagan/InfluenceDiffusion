@@ -1,8 +1,10 @@
 from setuptools import setup, find_packages
+from pathlib import Path
+this_directory = Path(__file__).parent
+LONG_DESCRIPTION = (this_directory / "README.md").read_text()
 
 VERSION = '0.0.11'
 DESCRIPTION = 'InfluenceDiffusion package'
-LONG_DESCRIPTION = 'In this package, we implement popular network diffusion models and methods for their estimation.'
 
 setup(
     name="InfluenceDiffusion",
