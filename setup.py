@@ -1,12 +1,8 @@
 from setuptools import setup, find_packages
 
-<<<<<<< HEAD
 VERSION = '0.0.11'
-=======
-VERSION = '0.0.9'
->>>>>>> parent of b603939 (Update setup.py)
 DESCRIPTION = 'InfluenceDiffusion package'
-LONG_DESCRIPTION = 'in this package, we implement popular network diffusion models and methods for their estimation.'
+LONG_DESCRIPTION = 'In this package, we implement popular network diffusion models and methods for their estimation.'
 
 setup(
     name="InfluenceDiffusion",
