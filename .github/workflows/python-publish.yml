@@ -16,10 +16,16 @@ permissions:
   contents: write
 
 jobs:
-  deploy:
-
+  pypi-publish:
+    name: Upload release to PyPI
     runs-on: ubuntu-latest
-
+    environment:
+      name: pypi
+      url: https://pypi.org/p/InfluenceDiffusion
+      
+    permissions:
+      id-token: write
+    
     steps:
     - uses: actions/checkout@v4
     - name: Set up Python
@@ -33,7 +39,8 @@ jobs:
     - name: Build package
       run: python -m build
     - name: Publish package
-      uses: pypa/gh-action-pypi-publish@27b31702a0e7fc50959f5ad993c78deac1bdfc29
+      uses: pypa/gh-action-pypi-publish@release/v1
       with:
+        repository: https://upload.pypi.org/legacy/
         user: __token__
         password: ${{ secrets.PYPI_API_TOKEN }}
