@@ -2,7 +2,6 @@ from typing import List, Union, Dict
 import os
 import pickle
 import numpy as np
-from tqdm import tqdm
 from joblib import Parallel, delayed
 from scipy.stats import uniform
 from scipy.stats._distn_infrastructure import rv_frozen
@@ -144,13 +143,13 @@ class BaseWeightEstimator:
         vertex_2_active_parent_mask_t = {vertex: [] for vertex in self.informative_vertices}
         failed_vertices_masks = {vertex: [] for vertex in self.informative_vertices}
 
-        for vertex, vertex_pseudo_traces in tqdm(traces.items()):
+        for vertex, vertex_pseudo_traces in traces.items():
             for vertices_tm1, new_vertices_t in vertex_pseudo_traces:
                 parents = self.graph.get_parents(vertex, out_type=np.array)
-                active_parents_mask_tm1 = np.in1d(parents, np.array(list(vertices_tm1)))
+                active_parents_mask_tm1 = np.isin(parents, np.array(list(vertices_tm1)))
                 if new_vertices_t:
                     vertices_t = vertices_tm1 | new_vertices_t
-                    active_parents_mask_t = np.in1d(parents, np.array(list(vertices_t)))
+                    active_parents_mask_t = np.isin(parents, np.array(list(vertices_t)))
                     vertex_2_active_parent_mask_tm1[vertex].append(active_parents_mask_tm1)
                     vertex_2_active_parent_mask_t[vertex].append(active_parents_mask_t)
                 else:

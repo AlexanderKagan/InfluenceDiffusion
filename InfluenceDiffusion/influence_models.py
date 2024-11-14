@@ -48,6 +48,7 @@ class InfluenceModel:
         self.vertices = list(self.g.get_vertices())
         self.random_state = random_state
         self.n_jobs = n_jobs
+        self._edge_2_index = {edge: idx for idx, edge in enumerate(g.edges)}
         if check_init:
             self.check_param_init_correctness()
 
@@ -179,7 +180,7 @@ class InfluenceModel:
         self._pre_simulation_init(seed_set, simulation_rvs=simulation_rvs)
         return self._simulate_trace(out_trace_type=out_trace_type)
 
-    def make_simulation(self, seed_set: Set[int], simulation_rvs=None) -> np.ndarray:
+    def make_simulation(self, seed_set: Set[int], simulation_rvs=None) -> Union[Trace, List[Set[int]]]:
         """Run a simulation and return the propagation trace.
 
         Parameters
@@ -219,7 +220,8 @@ class InfluenceModel:
         seed_sets = self._sample_seeds(n_seeds=n_traces, seed_size_range=seed_size_range)
         return self.sample_traces_from_seeds(seed_sets, out_trace_type=out_trace_type)
 
-    def sample_traces_from_seeds(self, seed_sets: List[Set[int]], out_trace_type: bool = True) -> Union[Traces, List[List[Set[int]]]]:
+    def sample_traces_from_seeds(self, seed_sets: List[Set[int]],
+                                 out_trace_type: bool = True) -> Union[Traces, List[List[Set[int]]]]:
         """Sample traces from a list of seed sets.
 
         Parameters
@@ -441,7 +443,7 @@ class LTM(InfluenceModel):
         bool
             True if the adjacent vertex is influenced, otherwise False.
         """
-        self.vertex_2_influence_counter[v_adj] += self.g.get_edge_weight((v, v_adj))
+        self.vertex_2_influence_counter[v_adj] += self.g.get_edge_data(v, v_adj)["weight"]
         return self.vertex_2_threshold[v_adj] <= self.vertex_2_influence_counter[v_adj]
 
     def check_param_init_correctness(self, eps: float = 1e-6) -> None:
@@ -574,7 +576,7 @@ class ICM(InfluenceModel):
         bool
             True if the adjacent vertex is influenced, otherwise False.
         """
-        return self.edge_activations[self.g.get_edge_index((v, v_adj))]
+        return self.edge_activations[self._edge_2_index[(v, v_adj)]]
 
     def _generate_simulation_rvs(self, n_runs: int = 1) -> List:
         """Generate random activations for edges.
