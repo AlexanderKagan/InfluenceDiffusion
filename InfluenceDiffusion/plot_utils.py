@@ -2,6 +2,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 
+__all__ = ["plot_with_conf_intervals", "plot_hist_with_normal_fit"]
+
+
 def plot_with_conf_intervals(x_true, x_pred, conf_intervals=None,
                              fontsize=12, figsize=(10, 8), color="blue", ax=None,
                              xlab="True activation probability",

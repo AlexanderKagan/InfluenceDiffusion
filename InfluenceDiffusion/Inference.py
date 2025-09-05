@@ -8,6 +8,8 @@ from scipy.stats import norm
 from .estimation_models.OptimEstimation import GLTWeightEstimator
 from .utils import make_jax_cdf
 
+__all__ = ["GLTInferenceModule"]
+
 
 class GLTInferenceModule:
     def __init__(self, estimator: GLTWeightEstimator, vertex_2_jax_cdf: Dict[int, Callable] = None):

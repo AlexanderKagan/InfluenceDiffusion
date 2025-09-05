@@ -9,6 +9,9 @@ from .Graph import Graph
 from .Trace import Trace, Traces
 
 
+__all__ = ["InfluenceModel", "LTM", "GLTM", "ICM"]
+
+
 class InfluenceModel:
     """Base class for influence models on a graph.
 
