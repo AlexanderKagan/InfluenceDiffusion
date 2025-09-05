@@ -2,22 +2,17 @@ import numpy as np
 from typing import List, Union, Dict, Tuple
 from scipy.optimize import LinearConstraint, minimize
 from scipy.stats._distn_infrastructure import rv_frozen
+from copy import copy
 
 from ..Graph import Graph
 from ..Trace import Traces, PseudoTraces
 from .BaseWeightEstimator import BaseGLTWEightEstimator
+from .CDFEstimation import CensoredCDFEstimator
 
-__all__ = ["GLTGridSearchEstimator", "GLTWeightEstimator"]
+__all__ = ["GLTGridSearchEstimator", "GLTWeightEstimator", "GLTWeightDistribEstimator"]
 
 
 class GLTWeightEstimator(BaseGLTWEightEstimator):
-    """GLTW Weight Estimator for modeling influence in networks.
-
-    Attributes
-    ----------
-    vertex_2_distrib : Dict[int, rv_frozen]
-        Distribution mapping for vertices.
-    """
 
     def _compute_failed_vertex_ll(self, weights: np.ndarray, vertex: int) -> float:
         """Compute the log-likelihood for failed vertices.
@@ -99,8 +94,8 @@ class GLTWeightEstimator(BaseGLTWEightEstimator):
         """
         return np.sum([
             self._compute_vertex_nll(weights[self.graph.get_parents_mask(vertex)], vertex)
-            for vertex in self.informative_vertices
-        ])
+            for vertex in self.informative_vertices]
+        )
 
     def _compute_normalized_vertex_nll(self, weights: np.ndarray, vertex: int) -> float:
         """Compute the normalized negative log-likelihood for a vertex.
@@ -149,7 +144,8 @@ class GLTWeightEstimator(BaseGLTWEightEstimator):
             for vertex in self.informative_vertices
         }
 
-    def _optimize_vertex_parent_params(self, vertex: int, optimization_kwargs: Dict = None) -> Tuple[np.ndarray, rv_frozen]:
+    def _optimize_vertex_parent_params(self, vertex: int, optimization_kwargs: Dict = None) -> \
+            Tuple[np.ndarray, rv_frozen]:
         """Optimize parameters for a specific vertex.
 
         Parameters
@@ -173,7 +169,8 @@ class GLTWeightEstimator(BaseGLTWEightEstimator):
         )
         return optimizer_output.x, self.vertex_2_distrib[vertex]
 
-    def _set_informative_vertices_parent_params(self, informative_vertices_params: List[Tuple[np.ndarray, rv_frozen]]) -> None:
+    def _set_informative_vertices_parent_params(self, informative_vertices_params: List[Tuple[np.ndarray, rv_frozen]]) \
+            -> None:
         """Set the optimized parameters for informative vertices.
 
         Parameters
@@ -257,7 +254,8 @@ class GLTGridSearchEstimator(GLTWeightEstimator):
             for vertex_distribs in self.vertex_2_distrib_grid.values()
         ]), "All elements of the grid should be `rv_frozen`."
 
-    def _optimize_vertex_parent_params(self, vertex: int, optimization_kwargs: Dict = None) -> Tuple[np.ndarray, rv_frozen]:
+    def _optimize_vertex_parent_params(self, vertex: int, optimization_kwargs: Dict = None) -> \
+            Tuple[np.ndarray, rv_frozen]:
         """Optimize parameters for a specific vertex using grid search.
 
         Parameters
@@ -292,3 +290,81 @@ class GLTGridSearchEstimator(GLTWeightEstimator):
                 best_nll = nll
 
         return best_weights, best_distrib
+
+
+class GLTWeightDistribEstimator(GLTWeightEstimator):
+    """
+    Estimator of weights and vertex threshold distributions under the GLT diffusion model
+    """
+
+    def __init__(self, graph: Graph,
+                 threshold_support: Tuple[float, float] = (0, np.inf),
+                 n_jobs: int = 1) -> None:
+
+        """Initialize the GLTWeightDistribEstimator.
+
+        Parameters
+        ----------
+        graph : Graph
+            The graph structure.
+        n_jobs : int, optional
+            Number of jobs for parallel processing.
+        """
+        super().__init__(graph=graph, vertex_2_distrib=None, n_jobs=n_jobs)
+        self.threshold_support = threshold_support
+
+    def _construct_vertex_threshold_observed_intervals(self, vertex: int, parent_weights: np.array):
+        intervals = []
+        for mask_tm1, mask_t in zip(self._vertex_2_active_parent_mask_tm1[vertex],
+                                    self._vertex_2_active_parent_mask_t[vertex]):
+            lb = parent_weights[mask_tm1].sum()
+            ub = parent_weights[mask_t].sum()
+            intervals.append((lb, ub))
+
+        for failed_mask in self._failed_vertices_masks[vertex]:
+            lb = parent_weights[failed_mask].sum()
+            intervals.append((lb, np.inf))
+        return intervals
+
+    def _optimize_vertex_parent_params(self, vertex: int,
+                                       max_alternate_iter=2, tol=1e-5,
+                                       verbose=False,
+                                       optimization_kwargs: Dict = None) -> Tuple[np.ndarray, rv_frozen]:
+        """Optimize parameters for a specific vertex by iteratively estimating the weights and vertex threshold CDF.
+
+        Parameters
+        ----------
+        vertex : int
+            The vertex to optimize.
+        max_alternate_iter: int
+            Max number of weight & CDF estimation steps
+        verbose: bool
+            If verbose the NLL after iteration.
+        optimization_kwargs : Dict, optional
+            Additional optimization parameters.
+
+        Returns
+        -------
+        Tuple[np.ndarray, rv_frozen]
+            Weights and vertex threshold empirical CDF.
+        """
+        parent_weights = self.weights_[self.graph.get_parents_mask(vertex)].copy()
+        for iteration in range(max_alternate_iter):
+
+            cdf_fit_intervals = self._construct_vertex_threshold_observed_intervals(vertex, parent_weights)
+            distrib = CensoredCDFEstimator(support=self.threshold_support)
+            self.vertex_2_distrib[vertex] = copy(distrib.fit(intervals=cdf_fit_intervals))
+            optimizer_output = minimize(
+                lambda weights: self._compute_normalized_vertex_nll(weights, vertex=vertex),
+                x0=parent_weights,
+                method='SLSQP',
+                constraints=self._weight_constraints[vertex],
+                options=optimization_kwargs)
+            diff = np.linalg.norm(optimizer_output.x - parent_weights)
+            parent_weights = optimizer_output.x.copy()
+            if verbose:
+                print(f"Alternating Iteration: {iteration}, l2-norm wights diff: {diff}")
+            if diff < tol:
+                break
+
+        return parent_weights, self.vertex_2_distrib[vertex]

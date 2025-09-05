@@ -2,8 +2,8 @@
 # InfluenceDiffusion
 
 InfluenceDiffusion is a Python library that provides instruments for working with influence diffusion models on graphs. In particular, it contains implementations of
-- Popular diffusion models such as Independent Cascade, (General) Linear Threshold, etc. 
-- Methods for estimating parameters of these models
+- Popular diffusion models such as Independent Cascade, (General) Linear Threshold, etc.
+- Methods for estimating parameters of these models and constructing the corresponding confidence intervals.
 
 
 ## Installation
@@ -19,36 +19,43 @@ pip install InfluenceDiffusion
 ```python
 # Imports
 import matplotlib.pyplot as plt
-from networkx import erdos_renyi_graph
+from networkx import connected_watts_strogatz_graph
+from scipy.stats import beta
 
 from InfluenceDiffusion.Graph import Graph # class inheriting from nx.DiGraph
-from InfluenceDiffusion.influence_models import LTM 
-from InfluenceDiffusion.estimation_models.EMEstimation import LTWeightEstimatorEM 
+from InfluenceDiffusion.Inference import GLTInferenceModule
+from InfluenceDiffusion.influence_models import LTM
+from InfluenceDiffusion.estimation_models.OptimEstimation import GLTWeightEstimator
 from InfluenceDiffusion.weight_samplers import make_random_weights_with_indeg_constraint
+from InfluenceDiffusion.plot_utils import plot_with_conf_intervals
 
-# Sample an Erdos-Renyi graph 
-g_nx = erdos_renyi_graph(50, p=0.1, directed=True)
-g = Graph(edge_list=g_nx.edges)
 
-# Set ground-truth LT model edge weights (in-degree of each node is at most 1)
-weights = make_random_weights_with_indeg_constraint(g, indeg_ub=1)
+# Sample a connected Watts-Strogatz graph
+random_state = 1
+g = Graph(connected_watts_strogatz_graph(n=100, k=5, p=0.2, seed=random_state))
+
+# Set ground-truth GLT model edge weights (in-degree of each node is at most 1)
+weights = make_random_weights_with_indeg_constraint(g, indeg_ub=1, random_state=random_state)
 g.set_weights(weights)
 
-# Sample traces from an LT model on this graph
-ltm = LTM(g)
-traces = ltm.sample_traces(1000)
+# Sample traces from the Beta(2, 1)-GLT model on this graph
+threhsold_distrib = beta(2, 1)
+gltm = LTM(g, threshold_generator=threhsold_distrib, random_state=random_state)
+traces = gltm.sample_traces(1000)
 
 # Estimate the weights using the traces
-ltm_estimator = LTWeightEstimatorEM(g)
-pred_weights = ltm_estimator.fit(traces)
+gltm_estimator = GLTWeightEstimator(g, threhsold_distrib)
+pred_weights = gltm_estimator.fit(traces)
+
+# Compute 95% confidence intervals
+glt_inferencer = GLTInferenceModule(gltm_estimator)
+conf_ints = glt_inferencer.compute_all_weight_conf_ints(alpha=0.05)
 
 # Compare with the ground-truth weights
-plt.scatter(weights, pred_weights)
-plt.plot([0, 1], [0, 1], linestyle='--', c='black')
-plt.xlabel("True weights")
-plt.ylabel("Predicted weights")
-plt.show()
+plot_with_conf_intervals(weights, pred_weights, conf_ints,
+                         xlab="True weights", ylab="Predicted weights")
 ```
+![](images/weight_estimation.jpg)
 
 ## License
 

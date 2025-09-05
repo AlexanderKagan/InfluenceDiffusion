@@ -8,7 +8,7 @@ from scipy.stats._distn_infrastructure import rv_frozen
 
 from ..Trace import Traces, PseudoTraces
 from ..Graph import Graph
-from ..utils import multiple_union
+from ..utils import multiple_union, random_vector_inside_simplex
 
 __all__ = ["BaseWeightEstimator", "BaseGLTWEightEstimator", "BaseICWEightEstimator"]
 
@@ -361,10 +361,12 @@ class BaseGLTWEightEstimator(BaseWeightEstimator):
     """
 
     def __init__(self, graph: Graph, n_jobs: int = None,
-                 vertex_2_distrib: Dict[int, rv_frozen] = None):
+                 vertex_2_distrib: Union[Dict[int, rv_frozen], rv_frozen] = None):
         super().__init__(graph, n_jobs)
         if vertex_2_distrib is None:
             vertex_2_distrib = {v: uniform(0, 1) for v in graph.get_vertices()}
+        elif isinstance(vertex_2_distrib, rv_frozen):
+            vertex_2_distrib = {v: vertex_2_distrib for v in graph.get_vertices()}
         self.vertex_2_distrib = vertex_2_distrib
 
     def _generate_random_weights(self) -> np.ndarray:
@@ -380,10 +382,8 @@ class BaseGLTWEightEstimator(BaseWeightEstimator):
             parent_mask = self.graph.get_parents_mask(vertex)
             num_parents = self.graph.get_indegree(vertex, weighted=False)
             support_ub = self.vertex_2_distrib[vertex].support()[1]
-            if support_ub == np.inf:
-                weights[parent_mask] = np.random.exponential(num_parents)
-            else:
-                weights[parent_mask] = np.random.rand(num_parents) * support_ub / num_parents
+            support_ub = 1 if support_ub == np.inf else support_ub
+            weights[parent_mask] = random_vector_inside_simplex(num_parents, ub=support_ub)
         return weights
 
     def _check_init_weight_correctness(self, init_weights: Union[List, np.ndarray], eps: float = 1e-6) -> None:

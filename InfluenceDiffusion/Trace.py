@@ -78,10 +78,10 @@ class Trace(tuple):
         if check_feasibility:
             self.make_feasibility_check()
 
-        self.__cumulative_trace: Tuple[Set] = None
-        self.__failed_vertices: Set = None
-        self.__activated_vertices: Set = None
-        self.__activation_time_dict: Dict[int, int] = None
+        self.__cumulative_trace = None
+        self.__failed_vertices = None
+        self.__activated_vertices = None
+        self.__activation_time_dict = None
 
     def make_feasibility_check(self) -> None:
         """Check if each vertex has at least one active parent at each time step."""
