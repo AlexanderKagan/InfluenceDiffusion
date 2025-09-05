@@ -3,7 +3,7 @@ from pathlib import Path
 this_directory = Path(__file__).parent
 LONG_DESCRIPTION = (this_directory / "README.md").read_text()
 
-VERSION = '0.0.13'
+VERSION = '0.0.14'
 DESCRIPTION = 'InfluenceDiffusion package'
 
 setup(
