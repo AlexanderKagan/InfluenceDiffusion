@@ -4,9 +4,9 @@ import numpy as np
 from typing import Dict, Callable
 from functools import partial
 from scipy.stats import norm
+from scipy.stats._distn_infrastructure import rv_frozen
 
 from .estimation_models.OptimEstimation import GLTWeightEstimator
-from .utils import make_jax_cdf
 
 __all__ = ["GLTInferenceModule"]
 
@@ -15,7 +15,7 @@ class GLTInferenceModule:
     def __init__(self, estimator: GLTWeightEstimator, vertex_2_jax_cdf: Dict[int, Callable] = None):
         self.estimator = estimator
         if vertex_2_jax_cdf is None:
-            self.vertex_2_jax_cdf = {vertex: make_jax_cdf(distrib)
+            self.vertex_2_jax_cdf = {vertex: self._make_jax_cdf(distrib)
                                      for vertex, distrib in self.estimator.vertex_2_distrib.items()}
         else:
             self.vertex_2_jax_cdf = vertex_2_jax_cdf
@@ -40,6 +40,18 @@ class GLTInferenceModule:
         masks_t = jnp.vstack([t_active_masks, t_failed_masks], dtype=jnp.float32)
         masks_tm1 = jnp.vstack([tm1_active_masks, tm1_failed_masks], dtype=jnp.float32)
         return ys, masks_t, masks_tm1
+
+    @staticmethod
+    def _make_jax_cdf(distrib: rv_frozen):
+        name = distrib.dist.name
+        args = distrib.args
+        kwargs = distrib.kwds
+        local_dic = {}
+        exec(f"jax_distrib=jax.scipy.stats.{name}", None, local_dic)
+        jax_distrib = local_dic["jax_distrib"]
+        if name == "expon":
+            return lambda x: 1. - jnp.exp(-x)
+        return lambda x: jax_distrib.cdf(x, *args, **kwargs)
 
     @staticmethod
     def _vertex_ll(parent_weights, cdf, ys, masks_t, masks_tm1, eps=1e-6):

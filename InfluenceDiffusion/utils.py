@@ -1,7 +1,5 @@
 import numpy as np
 from typing import Iterable, Set
-from scipy.stats._distn_infrastructure import rv_frozen
-import jax.numpy as jnp
 
 
 def multiple_union(set_list: Iterable[Set]):
@@ -29,15 +27,3 @@ def random_vector_inside_simplex(dim: int, ub: float = 1.):
 def random_vector_on_simplex(dim: int, ub: float = 1.):
     X = random_vector_inside_simplex(dim=dim, ub=1)
     return X / np.sum(X) * ub
-
-
-def make_jax_cdf(distrib: rv_frozen):
-    name = distrib.dist.name
-    args = distrib.args
-    kwargs = distrib.kwds
-    local_dic = {}
-    exec(f"jax_distrib=jax.scipy.stats.{name}", None, local_dic)
-    jax_distrib = local_dic["jax_distrib"]
-    if name == "expon":
-        return lambda x: 1. - jnp.exp(-x)
-    return lambda x: jax_distrib.cdf(x, *args, **kwargs)
