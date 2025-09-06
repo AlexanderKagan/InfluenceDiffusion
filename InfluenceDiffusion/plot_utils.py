@@ -1,7 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-
 __all__ = ["plot_with_conf_intervals", "plot_hist_with_normal_fit"]
 
 
@@ -13,22 +12,31 @@ def plot_with_conf_intervals(x_true, x_pred, conf_intervals=None,
     Plot a scatter plot of `x_true` vs `x_pred` with confidence intervals as a filled area
     and a diagonal line y=x.
 
-    :param x_true: Array-like, true values.
-    :param x_pred: Array-like, predicted values.
-    :param conf_intervals: 2D array of shape (2, len(x_pred)),
-                           containing the lower and upper bounds of the confidence intervals.
-                           If None, no confidence intervals are plotted.
-    :param fontsize: int, font size for axis labels. Default is 12.
-    :param figsize: tuple, size of the figure (width, height) in inches. Default is (10, 8).
-    :param color: str or tuple, color of the scatter points and confidence interval area. Default is "blue".
-    :param ax: matplotlib.axes.Axes, optional existing axes to plot on.
-               If None, a new figure and axes are created.
-    :param xlab: str, label for the x-axis. Default is "True activation probability".
-    :param ylab: str, label for the y-axis. Default is "Predicted activation probability".
+    Parameters
+    ----------
+    x_true : array-like
+        True values.
+    x_pred : array-like
+        Predicted values.
+    conf_intervals : array-like, shape (2, len(x_pred)), optional
+        Lower and upper bounds of the confidence intervals. If None, no intervals are plotted.
+    fontsize : int, default 12
+        Font size for axis labels.
+    figsize : tuple, default (10, 8)
+        Figure size in inches (width, height).
+    color : str or tuple, default "blue"
+        Color of the scatter points and confidence interval area.
+    ax : matplotlib.axes.Axes, optional
+        Existing axes to plot on. If None, a new figure and axes are created.
+    xlab : str, default "True activation probability"
+        Label for the x-axis.
+    ylab : str, default "Predicted activation probability"
+        Label for the y-axis.
     """
     assert len(x_pred) == len(x_true), "x_pred and x_true must have the same length"
-    assert conf_intervals.shape[1] == len(x_pred), "conf_intervals must have the same second dim as x_pred"
-    assert conf_intervals.shape[0] == 2, "conf_intervals must have two rows for lower and upper bounds"
+    if conf_intervals is not None:
+        assert conf_intervals.shape[1] == len(x_pred), "conf_intervals must have same second dim as x_pred"
+        assert conf_intervals.shape[0] == 2, "conf_intervals must have two rows for lower and upper bounds"
 
     # Sort by x_true so fill_between works correctly
     sort_idx = np.argsort(x_true)
@@ -62,10 +70,16 @@ def plot_hist_with_normal_fit(sample, true_value, true_std=None, n_bins=20):
     """
     Plot a histogram of a sample with a fitted normal curve and a vertical line at the true value.
 
-    :param sample: Array-like, sample data points
-    :param true_value: Float, the true value
-    :param true_std: Float, the true std
-    :param n_bins: Int, the number of histogram bins
+    Parameters
+    ----------
+    sample : array-like
+        Sample data points.
+    true_value : float
+        The true value.
+    true_std : float, optional
+        The true standard deviation, used to plot the theoretical normal curve.
+    n_bins : int, default 20
+        Number of bins for the histogram.
     """
     from scipy.stats import norm
 
@@ -80,15 +94,15 @@ def plot_hist_with_normal_fit(sample, true_value, true_std=None, n_bins=20):
     p_fit = norm.pdf(x, loc=mean, scale=std)
     plt.plot(x, p_fit, 'b', linewidth=2, label="Fitted Gaussian")
 
-    # Create the normal distribution's PDF
+    # Plot the theoretical normal curve
     if true_std is not None:
         p = norm.pdf(x, loc=true_value, scale=true_std)
         plt.plot(x, p, 'r', linewidth=2, label="Theoretical Gaussian")
 
-    # Plot the vertical line at the true value
+    # Plot vertical line at the true value
     plt.axvline(true_value, color='black', linestyle='--', linewidth=1.5, label="True value")
 
-    # Add labels and title
+    # Labels and legend
     plt.xlabel('Value')
     plt.ylabel('Density')
     plt.legend()

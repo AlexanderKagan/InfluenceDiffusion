@@ -1,4 +1,5 @@
 import numpy as np
+from warnings import warn
 from typing import List, Union, Dict, Tuple
 from scipy.optimize import LinearConstraint, minimize
 from scipy.stats._distn_infrastructure import rv_frozen
@@ -294,7 +295,13 @@ class GLTGridSearchEstimator(GLTWeightEstimator):
 
 class GLTWeightDistribEstimator(GLTWeightEstimator):
     """
-    Estimator of weights and vertex threshold distributions under the GLT diffusion model
+    Estimator of weights and vertex threshold distributions under the GLT diffusion model.
+    This estimator alternates estimation of the GLT weights and estimation of the vertex threshold CDF
+    using the Turnbull estimator. For the Turnbull estimator, see:
+
+    Turnbull, Bruce W. (1976).
+    “The Empirical Distribution Function with Arbitrarily Grouped, Censored and Truncated Data.”
+    Journal of the Royal Statistical Society. Series B (Methodological) 38(3), 290–295.
     """
 
     def __init__(self, graph: Graph,
@@ -303,17 +310,37 @@ class GLTWeightDistribEstimator(GLTWeightEstimator):
 
         """Initialize the GLTWeightDistribEstimator.
 
+
         Parameters
         ----------
         graph : Graph
             The graph structure.
+        threshold_support : Tuple[float, float]
+            Support for the vertex threshold distributions.
         n_jobs : int, optional
             Number of jobs for parallel processing.
         """
         super().__init__(graph=graph, vertex_2_distrib=None, n_jobs=n_jobs)
+        warn("This estimator is currently unstable and can only estimate CDF accurately for high indeg vertices!")
         self.threshold_support = threshold_support
 
     def _construct_vertex_threshold_observed_intervals(self, vertex: int, parent_weights: np.array):
+        """
+        Construct the observed intervals for a vertex's threshold based on parent activations.
+
+        Parameters
+        ----------
+        vertex : int
+            The vertex for which to construct threshold intervals.
+        parent_weights : np.ndarray
+            Current weights of the parent vertices.
+
+        Returns
+        -------
+        List[Tuple[float, float]]
+            List of intervals containing the lower and upper bounds for the vertex threshold
+            based on observed activations.
+        """
         intervals = []
         for mask_tm1, mask_t in zip(self._vertex_2_active_parent_mask_tm1[vertex],
                                     self._vertex_2_active_parent_mask_t[vertex]):
