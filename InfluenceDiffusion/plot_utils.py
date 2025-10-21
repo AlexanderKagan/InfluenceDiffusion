@@ -57,9 +57,9 @@ def plot_with_conf_intervals(x_true, x_pred, conf_intervals=None,
                         color=color, alpha=0.2)
 
     # Diagonal line y=x
-    min_x, max_x = np.min(x_true), np.max(x_true)
-    min_y, max_y = np.min(x_pred), np.max(x_pred)
-    ax.plot([min_x, max_x], [min_y, max_y], linestyle='--', color="black")
+    x_concat = np.hstack([x_true, x_pred])
+    min_x, max_x = np.min(x_concat), np.max(x_concat)
+    ax.plot([min_x, max_x], [min_x, max_x], linestyle='--', color="black")
 
     # Labels
     ax.set_xlabel(xlab, fontsize=fontsize)
