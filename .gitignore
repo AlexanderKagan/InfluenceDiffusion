@@ -5,3 +5,5 @@
 .ipynb_checkpoints
 InfluenceDiffusion.egg-info
 InfluenceDiffusion/joint_weight_threshold_estimation.ipynb
+build
+build/
