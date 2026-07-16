@@ -67,7 +67,7 @@ class BaseWeightEstimator(ABC):
             failed_vertices = np.array(list(trace.get_all_failed_vertices()))
             for vertex in failed_vertices:
                 parents = self.graph.get_parents(vertex)
-                active_parents_mask = np.in1d(parents, active_vertices)
+                active_parents_mask = np.isin(parents, active_vertices)
                 failed_vertices_masks[vertex].append(active_parents_mask)
             
         self._failed_vertices_masks = {vertex: np.vstack(masks) for vertex, masks in failed_vertices_masks.items()
@@ -89,8 +89,8 @@ class BaseWeightEstimator(ABC):
             for new_vertices_tp1, vertices_t, vertices_tm1 in zip(trace[1:], cum_trace_list[1:-1], cum_trace_list[:-2]):
                 for vertex in new_vertices_tp1:
                     parents = self.graph.get_parents(vertex)
-                    active_parents_mask_t = np.in1d(parents, np.array(list(vertices_t)))
-                    active_parents_mask_tm1 = np.in1d(parents, np.array(list(vertices_tm1)))
+                    active_parents_mask_t = np.isin(parents, np.array(list(vertices_t)))
+                    active_parents_mask_tm1 = np.isin(parents, np.array(list(vertices_tm1)))
                     vertex_2_active_parent_mask_tm1[vertex].append(active_parents_mask_tm1)
                     vertex_2_active_parent_mask_t[vertex].append(active_parents_mask_t)
 
