@@ -2,9 +2,8 @@ import numpy as np
 from copy import deepcopy
 from scipy import stats
 from scipy.stats._distn_infrastructure import rv_frozen
-from typing import Dict, Optional, Set, Union, List
+from typing import Dict, Set, Union, List
 from joblib import Parallel, delayed
-from abc import ABC, abstractmethod
 
 from .Graph import Graph
 from .Trace import Trace, Traces
@@ -13,7 +12,7 @@ from .Trace import Trace, Traces
 __all__ = ["InfluenceModel", "LTM", "GLTM", "ICM"]
 
 
-class InfluenceModel(ABC):
+class InfluenceModel:
     """Base class for influence models on a graph.
 
     Parameters
@@ -47,8 +46,7 @@ class InfluenceModel(ABC):
         Trace of the propagation process.
     """
 
-    def __init__(self, g: Graph, check_init: bool = True, random_state: Optional[int] = None, 
-                 n_jobs: Optional[int] = None) -> None:
+    def __init__(self, g: Graph, check_init: bool = True, random_state: int = None, n_jobs: int = None) -> None:
         self.g = g
         self.vertices = list(self.g.get_vertices())
         self.random_state = random_state
@@ -65,9 +63,8 @@ class InfluenceModel(ABC):
         NotImplementedError
             This method should be implemented in derived classes.
         """
-        pass
+        raise NotImplementedError()
 
-    @abstractmethod
     def _init_simulation_rvs(self, simulation_rvs=None) -> None:
         """Initialize simulation random variables.
 
@@ -81,10 +78,9 @@ class InfluenceModel(ABC):
         NotImplementedError
             This method should be implemented in derived classes.
         """
-        pass
+        raise NotImplementedError()
 
-    @abstractmethod
-    def _generate_simulation_rvs(self, n_runs: int = 1) -> np.ndarray:
+    def _generate_simulation_rvs(self, n_runs: int = 1) -> List:
         """Generate random variables for simulation.
 
         Parameters
@@ -94,7 +90,7 @@ class InfluenceModel(ABC):
 
         Returns
         -------
-        np.ndarray
+        List
             Generated random variables for the simulation.
         
         Raises
@@ -102,7 +98,7 @@ class InfluenceModel(ABC):
         NotImplementedError
             This method should be implemented in derived classes.
         """
-        pass
+        raise NotImplementedError()
 
     def _pre_simulation_init(self, seed_set: Set[int], simulation_rvs=None) -> None:
         """Prepare for simulation by initializing parameters.
@@ -126,7 +122,6 @@ class InfluenceModel(ABC):
         self._propagation_trace: List[Set[int]] = [self.seed_set]
         self._init_simulation_rvs(simulation_rvs)
 
-    @abstractmethod
     def _make_edge_influence_attempt(self, v: int, v_adj: int) -> bool:
         """Attempt to influence adjacent vertex.
 
@@ -147,7 +142,7 @@ class InfluenceModel(ABC):
         NotImplementedError
             This method should be implemented in derived classes.
         """
-        pass
+        raise NotImplementedError()
 
     def _simulate_trace(self, out_trace_type: bool = True) -> Union[Trace, List[Set[int]]]:
         """Simulate the influence spread.
@@ -200,14 +195,14 @@ class InfluenceModel(ABC):
 
         Returns
         -------
-        Union[Trace, List[Set[int]]]
-            The propagation trace
+        np.ndarray
+            The propagation trace as an array.
         """
         self._pre_simulation_init(seed_set, simulation_rvs=simulation_rvs)
         return self._simulate_trace()
 
     def sample_traces(self, n_traces: int = 100,
-                      seed_size_range: Optional[List[int]] = None,
+                      seed_size_range: List[int] = None,
                       out_trace_type: bool = True) -> Union[Traces, List[List[Set[int]]]]:
         """Sample multiple traces.
 
@@ -223,13 +218,13 @@ class InfluenceModel(ABC):
         Returns
         -------
         Union[Traces, List[List[Set[int]]]]
-            The sampled traces
+            The sampled traces or a Traces object.
         """
         seed_sets = self._sample_seeds(n_seeds=n_traces, seed_size_range=seed_size_range)
         return self.sample_traces_from_seeds(seed_sets, out_trace_type=out_trace_type)
 
     def sample_traces_from_seeds(self, seed_sets: List[Set[int]],
-                                 out_trace_type: bool = True) -> Union[Traces, List]:
+                                 out_trace_type: bool = True) -> Union[Traces, List[List[Set[int]]]]:
         """Sample traces from a list of seed sets.
 
         Parameters
@@ -251,7 +246,7 @@ class InfluenceModel(ABC):
             (seed_set, thresholds)
             for seed_set, thresholds in zip(seed_sets, simulation_rvs_over_runs)
         )
-        return Traces(self.g, traces) if out_trace_type else list(traces)
+        return Traces(self.g, traces) if out_trace_type else traces
 
     def _make_step(self) -> None:
         """Make a simulation step by activating new nodes.
@@ -260,8 +255,7 @@ class InfluenceModel(ABC):
         """
         new_influence_nodes = set()
         for v in self._cur_influence_nodes:
-            
-            for v_adj in set(self.g.get_children(v)) - self.all_influenced_nodes:
+            for v_adj in self.g.get_children(v).difference(self.all_influenced_nodes):
                 influence_res = self._make_edge_influence_attempt(v, v_adj)
                 if influence_res:
                     new_influence_nodes.add(v_adj)
@@ -273,7 +267,7 @@ class InfluenceModel(ABC):
         if new_influence_nodes:
             self._propagation_trace.append(new_influence_nodes)
 
-    def _sample_seeds(self, n_seeds: int, seed_size_range: Optional[List[int]] = None) -> List[Set[int]]:
+    def _sample_seeds(self, n_seeds: int, seed_size_range: List[int] = None) -> List[Set[int]]:
         """Sample seed sets from the graph.
 
         Parameters
@@ -294,7 +288,7 @@ class InfluenceModel(ABC):
             If values in seed_size_range are out of bounds.
         """
         if seed_size_range is None:
-            seed_size_range = list(range(1, self.g.count_vertices() + 1))
+            seed_size_range = range(1, self.g.count_vertices() + 1)
         else:
             assert max(seed_size_range) <= self.g.count_vertices() and min(seed_size_range) > 0, \
                 "Values of `seed_size_range should be between 1 and the number of vertices in the graph"
@@ -324,7 +318,7 @@ class InfluenceModel(ABC):
         """
         traces = self.sample_traces_from_seeds([seed_set] * n_runs, out_trace_type=True)
         spread_over_runs = [len(trace.get_all_activated_vertices()) for trace in traces]
-        mean_spread, std_spread = np.mean(spread_over_runs, dtype=float), np.std(spread_over_runs, dtype=float)
+        mean_spread, std_spread = np.mean(spread_over_runs), np.std(spread_over_runs)
         return (mean_spread, std_spread) if with_std else mean_spread
 
     def find_optimal_seed_greedily(self, seed_size: int, n_runs_per_node: int = 100) -> List[int]:
@@ -382,7 +376,7 @@ class LTM(InfluenceModel):
     """
 
     def __init__(self, g: Graph, threshold_generator=stats.uniform(0, 1),
-                 check_init: bool = True, random_state: Optional[int] = None, n_jobs: Optional[int] = None) -> None:
+                 check_init: bool = True, random_state: int = None, n_jobs: int = None) -> None:
         self.threshold_generator = threshold_generator
         super().__init__(g, check_init=check_init, random_state=random_state, n_jobs=n_jobs)
 
@@ -497,7 +491,7 @@ class GLTM(LTM):
     """
 
     def __init__(self, g: Graph, threshold_distribs: Dict[int, rv_frozen],
-                 check_init: bool = True, random_state: Optional[int] = None, n_jobs: Optional[int] = None) -> None:
+                 check_init: bool = True, random_state: int = None, n_jobs: int = None) -> None:
         self.threshold_distribs = threshold_distribs
         super().__init__(g, check_init=check_init, random_state=random_state, n_jobs=n_jobs)
 
@@ -587,7 +581,7 @@ class ICM(InfluenceModel):
         """
         return self.edge_activations[self._edge_2_index[(v, v_adj)]]
 
-    def _generate_simulation_rvs(self, n_runs: int = 1) -> np.ndarray:
+    def _generate_simulation_rvs(self, n_runs: int = 1) -> List:
         """Generate random activations for edges.
 
         Parameters
@@ -597,7 +591,7 @@ class ICM(InfluenceModel):
 
         Returns
         -------
-        np.ndarray
+        List[np.ndarray]
             Random activation results for each edge.
         """
         if self.random_state:

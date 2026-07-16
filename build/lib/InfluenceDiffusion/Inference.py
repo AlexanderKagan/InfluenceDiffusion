@@ -1,7 +1,7 @@
 import jax
 import jax.numpy as jnp
 import numpy as np
-from typing import Dict, Callable, Optional
+from typing import Dict, Callable
 from functools import partial
 from scipy.stats import norm
 from scipy.stats._distn_infrastructure import rv_frozen
@@ -12,7 +12,7 @@ __all__ = ["GLTInferenceModule"]
 
 
 class GLTInferenceModule:
-    def __init__(self, estimator: GLTWeightEstimator, vertex_2_jax_cdf: Optional[Dict[int, Callable]] = None):
+    def __init__(self, estimator: GLTWeightEstimator, vertex_2_jax_cdf: Dict[int, Callable] = None):
         self.estimator = estimator
         if vertex_2_jax_cdf is None:
             self.vertex_2_jax_cdf = {vertex: self._make_jax_cdf(distrib)

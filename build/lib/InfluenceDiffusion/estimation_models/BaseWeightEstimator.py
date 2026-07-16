@@ -1,11 +1,10 @@
-from typing import Iterable, List, Optional, Tuple, Union, Dict
+from typing import List, Union, Dict
 import os
 import pickle
 import numpy as np
 from joblib import Parallel, delayed
 from scipy.stats import uniform
 from scipy.stats._distn_infrastructure import rv_frozen
-from abc import ABC, abstractmethod
 
 from ..Trace import Traces, PseudoTraces
 from ..Graph import Graph
@@ -14,14 +13,14 @@ from ..utils import multiple_union, random_vector_inside_simplex
 __all__ = ["BaseWeightEstimator", "BaseGLTWEightEstimator", "BaseICWEightEstimator"]
 
 
-class BaseWeightEstimator(ABC):
+class BaseWeightEstimator:
     """Base class for weight estimation in influence models.
 
     Attributes
     ----------
     graph : Graph
         The graph representing the network.
-    n_jobs : int, optional
+    n_jobs : Optional[int]
         Number of jobs for parallel processing.
     informative_vertices : set
         Set of informative vertices in the graph.
@@ -37,7 +36,7 @@ class BaseWeightEstimator(ABC):
         Masks for active parents at time t.
     """
 
-    def __init__(self, graph: Graph, n_jobs: Optional[int] = None):
+    def __init__(self, graph: Graph, n_jobs: int = None):
         self.graph = graph
         self.n_jobs = n_jobs
         self.informative_vertices = set()
@@ -66,7 +65,7 @@ class BaseWeightEstimator(ABC):
             active_vertices = np.array(list(trace.get_all_activated_vertices()))
             failed_vertices = np.array(list(trace.get_all_failed_vertices()))
             for vertex in failed_vertices:
-                parents = self.graph.get_parents(vertex)
+                parents = self.graph.get_parents(vertex, out_type=np.array)
                 active_parents_mask = np.in1d(parents, active_vertices)
                 failed_vertices_masks[vertex].append(active_parents_mask)
             
@@ -88,7 +87,7 @@ class BaseWeightEstimator(ABC):
             cum_trace_list = [set()] + list(trace.cum_union())
             for new_vertices_tp1, vertices_t, vertices_tm1 in zip(trace[1:], cum_trace_list[1:-1], cum_trace_list[:-2]):
                 for vertex in new_vertices_tp1:
-                    parents = self.graph.get_parents(vertex)
+                    parents = self.graph.get_parents(vertex, out_type=np.array)
                     active_parents_mask_t = np.in1d(parents, np.array(list(vertices_t)))
                     active_parents_mask_tm1 = np.in1d(parents, np.array(list(vertices_tm1)))
                     vertex_2_active_parent_mask_tm1[vertex].append(active_parents_mask_tm1)
@@ -146,7 +145,7 @@ class BaseWeightEstimator(ABC):
 
         for vertex, vertex_pseudo_traces in traces.items():
             for vertices_tm1, new_vertices_t in vertex_pseudo_traces:
-                parents = self.graph.get_parents(vertex)
+                parents = self.graph.get_parents(vertex, out_type=np.array)
                 active_parents_mask_tm1 = np.isin(parents, np.array(list(vertices_tm1)))
                 if new_vertices_t:
                     vertices_t = vertices_tm1 | new_vertices_t
@@ -181,14 +180,14 @@ class BaseWeightEstimator(ABC):
         else:
             raise NotImplementedError("traces can only be of type Traces or PseudoTraces")
 
-    def _preprocess_traces(self, traces: Union[Traces, PseudoTraces], masks_path: Optional[str] = None) -> None:
+    def _preprocess_traces(self, traces: Union[Traces, PseudoTraces], masks_path: str = None) -> None:
         """Preprocess traces by validating and computing masks.
 
         Parameters
         ----------
         traces : Union[Traces, PseudoTraces]
             The traces to preprocess.
-        masks_path : str, optional
+        masks_path : Optional[str]
             Path to load masks from, if applicable.
         """
         traces = self._validate_traces(traces)
@@ -232,12 +231,12 @@ class BaseWeightEstimator(ABC):
         """
         assert len(init_weights) == self.graph.count_edges()
 
-    def _init_weights(self, init_weights: Optional[Union[List, np.ndarray]]) -> None:
+    def _init_weights(self, init_weights: Union[List, np.ndarray]) -> None:
         """Initialize weights based on provided initial weights or generate random weights.
 
         Parameters
         ----------
-        init_weights : Union[List, np.ndarray], optional
+        init_weights : Optional[Union[List, np.ndarray]]
             Initial weights to set. If None, random weights are generated.
         """
         if init_weights is not None:
@@ -246,7 +245,6 @@ class BaseWeightEstimator(ABC):
         else:
             self.weights_ = self._generate_random_weights()
 
-    @abstractmethod
     def _generate_random_weights(self) -> np.ndarray:
         """Generate random weights for edges.
 
@@ -255,25 +253,46 @@ class BaseWeightEstimator(ABC):
         np.ndarray
             Randomly generated weights.
         """
-        pass
-    
-    @abstractmethod
-    def _fit_vertex_parent_params(self, vertex: int, **optim_kwargs) -> Tuple:
-        """Fit parameters for a specific vertex.
+        raise NotImplementedError("Subclasses should implement this method.")
+
+    def _optimize_vertex_parent_params(self, vertex: int, **optim_kwargs) -> np.ndarray:
+        """Optimize parameters for a specific vertex.
 
         Parameters
         ----------
         vertex : int
-            The vertex to fit parameters for.
+            The vertex to optimize parameters for.
+        optim_kwargs : dict
+            Additional optimization parameters.
 
         Returns
         -------
-        Tuple
-            Fitted parameters for the vertex.
+        np.ndarray
+            Optimized parameters for the vertex.
         """
-        pass
+        raise NotImplementedError("Subclasses should implement this method.")
 
-    def _set_informative_vertices_parent_params(self, informative_vertices_params: Iterable) -> None:
+    def _optimize_informative_vertices_parent_params(self, verbose: bool = False, **optim_kwargs) -> List[np.ndarray]:
+        """Optimize parameters for all informative vertices in parallel.
+
+        Parameters
+        ----------
+        verbose : bool, optional
+            If True, progress messages are printed.
+        optim_kwargs : dict
+            Additional optimization parameters.
+
+        Returns
+        -------
+        List[np.ndarray]
+            List of optimized parameters for each informative vertex.
+        """
+        informative_vertices_params = Parallel(n_jobs=self.n_jobs, verbose=verbose)(
+            delayed(self._optimize_vertex_parent_params)(vertex, **optim_kwargs)
+            for vertex in self.informative_vertices)
+        return informative_vertices_params
+
+    def _set_informative_vertices_parent_params(self, informative_vertices_params: List[np.ndarray]) -> None:
         """Set the optimized parameters for informative vertices.
 
         Parameters
@@ -285,51 +304,51 @@ class BaseWeightEstimator(ABC):
             self.weights_[self.graph.get_parents_mask(vertex)] = parent_weights
 
     def _pre_fit(self, traces: Union[Traces, PseudoTraces],
-                 init_weights: Optional[Union[List, np.ndarray]] = None,
-                 masks_path: Optional[str] = None) -> None:
+                 init_weights: Union[List, np.ndarray] = None,
+                 masks_path: str = None) -> None:
         """Prepare for fitting by preprocessing traces and initializing weights.
 
         Parameters
         ----------
         traces : Union[Traces, PseudoTraces]
             The traces to analyze.
-        init_weights : Union[List, np.ndarray], optional
+        init_weights : Optional[Union[List, np.ndarray]]
             Initial weights to set.
-        masks_path : str, optional
+        masks_path : Optional[str]
             Path to load masks from.
         """
         self._preprocess_traces(traces, masks_path=masks_path)
         self._init_weights(init_weights)
 
     def fit(self, traces: Union[Traces, PseudoTraces], 
-            init_weights: Optional[Union[List, np.ndarray]] = None,
+            init_weights: Union[List, np.ndarray] = None,
             verbose: bool = False,
-            masks_path: Optional[str] = None,
-            **optim_kwargs) -> "BaseWeightEstimator":
+            masks_path: str = None,
+            **optim_kwargs) -> np.ndarray:
         """Fit the model to the given traces.
 
         Parameters
         ----------
         traces : Union[Traces, PseudoTraces]
             The traces to analyze.
-        init_weights : Union[List, np.ndarray], optional
+        init_weights : Optional[Union[List, np.ndarray]]
             Initial weights to set.
         verbose : bool, optional
             If True, progress messages are printed.
-        masks_path : str, optional
+        masks_path : Optional[str]
             Path to load masks from.
+        optim_kwargs : dict
+            Additional optimization parameters.
 
         Returns
         -------
-        self : object
-            The fitted estimator instance.
+        np.ndarray
+            The final estimated weights.
         """
         self._pre_fit(traces, init_weights=init_weights, masks_path=masks_path)
-        informative_vertices_params = Parallel(n_jobs=self.n_jobs, verbose=verbose)(
-            delayed(self._fit_vertex_parent_params)(vertex, **optim_kwargs)
-            for vertex in self.informative_vertices)
+        informative_vertices_params = self._optimize_informative_vertices_parent_params(verbose=verbose, **optim_kwargs)
         self._set_informative_vertices_parent_params(informative_vertices_params)
-        return self
+        return self.weights_
 
 
 class BaseGLTWEightEstimator(BaseWeightEstimator):
@@ -341,32 +360,13 @@ class BaseGLTWEightEstimator(BaseWeightEstimator):
         Distribution mapping for vertices.
     """
 
-    def __init__(self, graph: Graph, n_jobs: Optional[int] = None,
-                 vertex_2_distrib: Optional[Union[Dict[int, rv_frozen], rv_frozen]] = None):
+    def __init__(self, graph: Graph, n_jobs: int = None,
+                 vertex_2_distrib: Union[Dict[int, rv_frozen], rv_frozen] = None):
         super().__init__(graph, n_jobs)
-        self._validate_vertex_distributions(vertex_2_distrib)
-
-    def _validate_vertex_distributions(self, vertex_2_distrib: Optional[Union[Dict[int, rv_frozen], rv_frozen]] = None,
-                                   ) -> None:
-        """Initialize vertex distributions. 
-        If vertex_2_distrib is None, a uniform distribution is assigned to each vertex.
-        If vertex_2_distrib is a single distribution, it is assigned to all vertices.
-        If vertex_2_distrib is a dictionary, it must have an entry for each vertex
-
-        Parameters
-        ----------
-        vertex_2_distrib : Union[Dict[int, rv_frozen], rv_frozen], optional
-            Distribution mapping for vertices.
-        """
         if vertex_2_distrib is None:
-            vertex_2_distrib = {v: uniform(0, 1) for v in self.graph.get_vertices()}
+            vertex_2_distrib = {v: uniform(0, 1) for v in graph.get_vertices()}
         elif isinstance(vertex_2_distrib, rv_frozen):
-            vertex_2_distrib = {v: vertex_2_distrib for v in self.graph.get_vertices()}
-        elif isinstance(vertex_2_distrib, Dict):
-            assert len(vertex_2_distrib) == self.graph.number_of_nodes(), \
-                  "vertex_2_distrib must have an entry for each vertex in the graph."
-        else:
-            raise ValueError("vertex_2_distrib must be either a rv_frozen distribution or a dictionary")
+            vertex_2_distrib = {v: vertex_2_distrib for v in graph.get_vertices()}
         self.vertex_2_distrib = vertex_2_distrib
 
     def _generate_random_weights(self) -> np.ndarray:
@@ -380,7 +380,7 @@ class BaseGLTWEightEstimator(BaseWeightEstimator):
         weights = np.zeros(self.graph.count_edges())
         for vertex in self.informative_vertices:
             parent_mask = self.graph.get_parents_mask(vertex)
-            num_parents = int(self.graph.get_indegree(vertex, weighted=False))
+            num_parents = self.graph.get_indegree(vertex, weighted=False)
             support_ub = self.vertex_2_distrib[vertex].support()[1]
             support_ub = 1 if support_ub == np.inf else support_ub
             weights[parent_mask] = random_vector_inside_simplex(num_parents, ub=support_ub)
@@ -434,6 +434,4 @@ class BaseICWEightEstimator(BaseWeightEstimator):
         AssertionError
             If initial weights are not within the range [0, 1].
         """
-        if init_weights is not None:
-            init_weights = np.array(init_weights)
-            assert np.all((init_weights >= 0) & (init_weights <= 1))
+        assert np.all((init_weights >= 0) & (init_weights <= 1))

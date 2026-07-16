@@ -1,5 +1,5 @@
 import numpy as np
-from typing import Optional, Union
+from typing import Union
 
 from .BaseWeightEstimator import BaseWeightEstimator, BaseGLTWEightEstimator, BaseICWEightEstimator
 from ..Trace import Traces, PseudoTraces
@@ -22,14 +22,14 @@ class BaseWeightEstimatorEM(BaseWeightEstimator):
         Optimizes the parent weights for the specified vertex using the EM algorithm.
     """
 
-    def _em_step(self, vertex: int, vertex_parent_weights: np.ndarray) -> np.ndarray:
+    def _em_step(self, vertex: int, vertex_parent_weights: np.array) -> np.array:
         """Perform a single EM step for the specified vertex.
 
         Parameters
         ----------
         vertex : int
             The vertex for which to perform the EM step.
-        vertex_parent_weights : np.ndarray
+        vertex_parent_weights : np.array
             The current weights of the parent vertices.
 
         Returns
@@ -39,7 +39,7 @@ class BaseWeightEstimatorEM(BaseWeightEstimator):
         """
         raise NotImplementedError()
 
-    def _optimize_vertex_parent_params(self, vertex: int, max_iter: int = 50, tol: float = 1e-3) -> np.ndarray:
+    def _optimize_vertex_parent_params(self, vertex: int, max_iter: int = 50, tol: float = 1e-3) -> np.array:
         """Optimize the parent weights for the specified vertex using the EM algorithm.
 
         Parameters
@@ -99,7 +99,7 @@ class ICWeightEstimatorEM(BaseICWEightEstimator, BaseWeightEstimatorEM):
                 n_traces_parents_activated += self._failed_vertices_masks[vertex].sum(0)
             self._vertex_2_num_traces_parents_activated[vertex] = n_traces_parents_activated
 
-    def _em_step(self, vertex: int, vertex_parent_weights: np.ndarray) -> np.ndarray:
+    def _em_step(self, vertex: int, vertex_parent_weights: np.array) -> np.array:
         """Perform a single EM step for the specified vertex.
 
         This method computes the updated weights based on the current parent weights.
@@ -133,7 +133,7 @@ class ICWeightEstimatorEM(BaseICWEightEstimator, BaseWeightEstimatorEM):
         upd_weights[seen_parents_mask] /= n_traces_parents_activated[seen_parents_mask]
         return np.clip(upd_weights, 0, 1)
 
-    def _preprocess_traces(self, traces: Union[Traces, PseudoTraces], masks_path: Optional[str] = None) -> None:
+    def _preprocess_traces(self, traces: Union[Traces, PseudoTraces], masks_path: str = None) -> None:
         """Preprocesses the input traces and prepares necessary data for EM steps.
 
         Parameters
@@ -146,7 +146,7 @@ class ICWeightEstimatorEM(BaseICWEightEstimator, BaseWeightEstimatorEM):
         super()._preprocess_traces(traces=traces, masks_path=masks_path)
         self._precompute_num_traces_parents_activated()
 
-    def _generate_random_weights(self) -> np.ndarray:
+    def _generate_random_weights(self) -> np.array:
         """Generates random initial weights for the parent vertices.
 
         Returns
@@ -173,7 +173,7 @@ class LTWeightEstimatorEM(BaseGLTWEightEstimator, BaseWeightEstimatorEM):
         Generates random initial weights for the parent vertices.
     """
 
-    def __init__(self, graph: Graph, n_jobs: Optional[int] = None):
+    def __init__(self, graph: Graph, n_jobs: int = None):
         """Initialize the Linear Threshold Weight Estimator.
 
         Parameters
@@ -185,19 +185,19 @@ class LTWeightEstimatorEM(BaseGLTWEightEstimator, BaseWeightEstimatorEM):
         """
         super().__init__(graph, n_jobs=n_jobs)
 
-    def _em_step(self, vertex: int, vertex_parent_weights: np.ndarray) -> np.ndarray:
+    def _em_step(self, vertex: int, vertex_parent_weights: np.array) -> np.array:
         """Perform a single EM step for the specified vertex.
 
         Parameters
         ----------
         vertex : int
             The vertex for which to perform the EM step.
-        vertex_parent_weights : np.ndarray
+        vertex_parent_weights : np.array
             The current weights of the parent vertices.
 
         Returns
         -------
-        np.ndarray
+        np.array
             The updated weights for the parent vertices.
         """
         if vertex in self._vertex_2_active_parent_mask_t:
@@ -222,12 +222,12 @@ class LTWeightEstimatorEM(BaseGLTWEightEstimator, BaseWeightEstimatorEM):
         upd_weights = H_uvs / (H_empty_v + H_uvs.sum())
         return upd_weights
 
-    def _generate_random_weights(self) -> np.ndarray:
+    def _generate_random_weights(self) -> np.array:
         """Generates random initial weights for the parent vertices.
 
         Returns
         -------
-        np.ndarray
+        np.array
             An array of random weights for the parent vertices.
         """
         weights = np.zeros(self.graph.count_edges())

@@ -34,7 +34,7 @@ class Traces(list):
         The graph associated with the traces.
     """
 
-    def __new__(cls, graph: Graph, traces: List[Union[Trace, Tuple[Set, ...]]]) -> Traces:
+    def __new__(cls, graph: Graph, traces: List[Union[Trace, Tuple[Set]]]) -> Traces:
         return super(Traces, cls).__new__(cls, traces)
 
     def __init__(self, graph: Graph, traces: List[Union[Trace, Tuple[Set]]]) -> None:
@@ -42,7 +42,7 @@ class Traces(list):
         super().__init__(traces)
         self.graph = graph
 
-    def append(self, obj: Union[Trace, Tuple[Set, ...]]) -> None:
+    def append(self, obj: Union[Trace, Tuple[Set]]) -> None:
         """Append a new trace or tuple of sets to the list of traces.
 
         Parameters
@@ -68,10 +68,10 @@ class Trace(tuple):
         Whether to check the feasibility of the trace during initialization.
     """
 
-    def __new__(cls, graph: Graph, trace: Tuple[Set, ...], check_feasibility: bool = True) -> Trace:
+    def __new__(cls, graph: Graph, trace: Tuple[Set], check_feasibility: bool = True) -> Trace:
         return super(Trace, cls).__new__(cls, trace)
 
-    def __init__(self, graph: Graph, trace: Tuple[Set, ...], check_feasibility: bool = True) -> None:
+    def __init__(self, graph: Graph, trace: Tuple[Set], check_feasibility: bool = True) -> None:
         self.graph = graph
         self.check_feasibility = check_feasibility
         
@@ -407,7 +407,7 @@ class Trace(tuple):
             A set of edges where activation attempts were made.
         """
         attempt_edges_mask = np.array([self.was_attempt_through_edge(edge) for edge in self.graph.edge_array])
-        return set(self.graph.edge_array[attempt_edges_mask])
+        return self.graph.edge_array[attempt_edges_mask]
 
     def get_edges_between_subseq_active_nodes(self) -> Set[Tuple[int, int]]:
         """Get edges that connect subsequent active nodes.

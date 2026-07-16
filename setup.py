@@ -3,7 +3,7 @@ from pathlib import Path
 this_directory = Path(__file__).parent
 LONG_DESCRIPTION = (this_directory / "README.md").read_text()
 
-VERSION = '0.0.18'
+VERSION = '0.0.19'
 DESCRIPTION = 'InfluenceDiffusion package'
 
 setup(
@@ -18,8 +18,11 @@ setup(
     install_requires=["numpy<2",
                       "scipy",
                       "networkx",
+                      "matplotlib",
                       "typing",
-                      "joblib"],
+                      "joblib",
+                      "jax<0.4.26",
+                      "jaxlib<0.4.26"],
 
     keywords=['python', 'Influence Maximization', "Network diffusion models",
               "General Linear Threshold model", "Social Networks", "Independent Cascade model"],

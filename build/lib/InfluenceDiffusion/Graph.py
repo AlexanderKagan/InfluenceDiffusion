@@ -1,12 +1,12 @@
 import numpy as np
-from typing import List, Tuple, Union, Dict, Optional
+from typing import List, Tuple, Union, Dict
 import networkx as nx
 
 __all__ = ["Graph"]
 
 
 class Graph(nx.DiGraph):
-    def __init__(self, incoming_graph_data=None, weights: Optional[Union[List, np.ndarray]] = None, **attr):
+    def __init__(self, incoming_graph_data=None, weights: Union[List, np.array] = None, **attr):
         super().__init__(incoming_graph_data, **attr)
         self.edge_array = np.array(self.edges)
         if weights is None:
@@ -34,7 +34,7 @@ class Graph(nx.DiGraph):
     def _get_edge_weight_attributes(self):
         return np.array([edge[2] for edge in self.edges.data("weight", default=1)])
 
-    def set_weights(self, weights: Union[List, np.ndarray]) -> "Graph":
+    def set_weights(self, weights: Union[List, np.array]) -> "Graph":
         """
         Set weights for the edges in the graph.
 
@@ -58,7 +58,7 @@ class Graph(nx.DiGraph):
         self.weights = self._get_edge_weight_attributes()
         return self
 
-    def get_edges(self, as_array: bool = False) -> Union[np.ndarray, List[Tuple[int, int]]]:
+    def get_edges(self, as_array: bool = False) -> Union[np.array, List[Tuple[int, int]]]:
         """
         Retrieve the edges of the graph.
 
@@ -131,7 +131,7 @@ class Graph(nx.DiGraph):
         """
         return len(self.nodes)
 
-    def get_children_mask(self, vertex: int) -> np.ndarray:
+    def get_children_mask(self, vertex: int) -> np.array:
         """
         Create a mask for edges originating from a specified vertex.
 
@@ -147,7 +147,7 @@ class Graph(nx.DiGraph):
         """
         return self.edge_array[:, 0] == vertex
 
-    def get_children(self, vertex: int) -> np.ndarray:
+    def get_children(self, vertex: int, out_type: Union[set, list, np.array] = set) -> Union[set, list, np.array]:
         """
         Get the children (outgoing edges) of a specified vertex.
 
@@ -155,15 +155,17 @@ class Graph(nx.DiGraph):
         ----------
         vertex : int
             The vertex for which to find children.
+        out_type : Union[set, list, np.array], optional
+            The type of output to return (default is set).
 
         Returns
         -------
         Union[set, list, np.array]
             The children of the vertex in the specified output type.
         """
-        return self.edge_array[:, 1][self.get_children_mask(vertex)]
+        return out_type(self.edge_array[:, 1][self.get_children_mask(vertex)])
 
-    def get_parents_mask(self, vertex: int) -> np.ndarray:
+    def get_parents_mask(self, vertex: int) -> np.array:
         """
         Create a mask for edges leading to a specified vertex.
 
@@ -179,7 +181,7 @@ class Graph(nx.DiGraph):
         """
         return self.edge_array[:, 1] == vertex
 
-    def get_parents(self, vertex: int) -> np.ndarray:
+    def get_parents(self, vertex: int, out_type: Union[set, list, np.array] = set) -> Union[set, list, np.array]:
         """
         Get the parents (incoming edges) of a specified vertex.
 
@@ -187,13 +189,15 @@ class Graph(nx.DiGraph):
         ----------
         vertex : int
             The vertex for which to find parents.
+        out_type : Union[set, list, np.array], optional
+            The type of output to return (default is set).
 
         Returns
         -------
         Union[set, list, np.array]
             The parents of the vertex in the specified output type.
         """
-        return self.edge_array[:, 0][self.get_parents_mask(vertex)]
+        return out_type(self.edge_array[:, 0][self.get_parents_mask(vertex)])
 
     def get_vertex_2_indegree_dict(self, weighted: bool = False) -> Dict[int, Union[float, int]]:
         """
@@ -211,7 +215,7 @@ class Graph(nx.DiGraph):
         """
         return {vertex: self.get_indegree(vertex, weighted=weighted) for vertex in self.get_vertices()}
 
-    def get_outdegree(self, vertex: int, weighted: bool = False) -> float:
+    def get_outdegree(self, vertex: int, weighted: bool = False) -> Union[float, int]:
         """
         Get the outdegree of a specified vertex.
 
@@ -224,13 +228,13 @@ class Graph(nx.DiGraph):
 
         Returns
         -------
-        float
+        Union[float, int]
             The outdegree of the vertex.
         """
         children_weights = self.weights[self.edge_array[:, 0] == vertex]
-        return np.sum(children_weights, dtype=float) if weighted else len(children_weights)
+        return np.sum(children_weights) if weighted else len(children_weights)
 
-    def get_all_outdegrees(self, weighted: bool = False) -> np.ndarray:
+    def get_all_outdegrees(self, weighted: bool = False) -> np.array:
         """
         Get outdegrees for all vertices in the graph.
 
@@ -246,7 +250,7 @@ class Graph(nx.DiGraph):
         """
         return np.array([self.get_outdegree(v, weighted=weighted) for v in self.get_vertices()])
 
-    def get_avg_outdegree(self, weighted: bool = False) -> float:
+    def get_avg_outdegree(self, weighted: bool = False) -> Union[float, int]:
         """
         Calculate the average outdegree of all vertices.
 
@@ -257,10 +261,10 @@ class Graph(nx.DiGraph):
 
         Returns
         -------
-        float
+        Union[float, int]
             The average outdegree of the vertices.
         """
-        return np.mean(self.get_all_outdegrees(weighted=weighted), dtype=float)
+        return np.mean(self.get_all_outdegrees(weighted=weighted))
 
     def get_max_outdegree(self, weighted: bool = False) -> Union[float, int]:
         """
@@ -278,7 +282,7 @@ class Graph(nx.DiGraph):
         """
         return np.max(self.get_all_outdegrees(weighted))
 
-    def get_indegree(self, vertex: int, weighted: bool = False) -> float:
+    def get_indegree(self, vertex: int, weighted: bool = False) -> Union[float, int]:
         """
         Get the indegree of a specified vertex.
 
@@ -295,7 +299,7 @@ class Graph(nx.DiGraph):
             The indegree of the vertex.
         """
         parent_weights = self.weights[self.edge_array[:, 1] == vertex]
-        return np.sum(parent_weights, dtype=float) if weighted else len(parent_weights)
+        return np.sum(parent_weights) if weighted else len(parent_weights)
     
     def get_indegrees_dict(self, weighted: bool = False) -> Dict[int, Union[int, float]]:
         """
@@ -313,7 +317,7 @@ class Graph(nx.DiGraph):
         """
         return {v: self.get_indegree(v, weighted=weighted) for v in self.get_vertices()}
 
-    def get_all_indegrees(self, weighted: bool = False) -> np.ndarray:
+    def get_all_indegrees(self, weighted: bool = False) -> np.array:
         """
         Get indegrees for all vertices in the graph.
 
@@ -360,9 +364,9 @@ class Graph(nx.DiGraph):
         float
             The average indegree of the vertices.
         """
-        return np.mean(self.get_all_indegrees(weighted), dtype=float)
+        return np.mean(self.get_all_indegrees(weighted))
 
-    def get_edges_mask_from_set_to_vertex(self, vertex_set: set, vertex: int) -> np.ndarray:
+    def get_edges_mask_from_set_to_vertex(self, vertex_set: set, vertex: int) -> np.array:
         """
         Create a mask for edges leading from a set of vertices to a specified vertex.
 

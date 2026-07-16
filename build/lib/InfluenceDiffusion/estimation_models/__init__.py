@@ -1,3 +1,3 @@
 from .BaseWeightEstimator import BaseWeightEstimator, BaseGLTWEightEstimator, BaseICWEightEstimator
 from .EMEstimation import BaseWeightEstimatorEM, ICWeightEstimatorEM, LTWeightEstimatorEM
-from .OptimEstimation import GLTWeightEstimator, GLTGridSearchEstimator, GLTWeightDistribEstimator
+from .OptimEstimation import GLTWeightEstimator, GLTGridSearchEstimator
