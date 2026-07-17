@@ -380,14 +380,27 @@ class GLTWeightDistribEstimator(GLTWeightEstimator):
         assert all(low < high for low, high in distrib_params_2_range.values()), \
             "For each parameter, low should be less than high."
         self.distrib_params_2_range = distrib_params_2_range
-          
+
+    @staticmethod
+    def _make_base_distrib_param(range_lb: float, range_ub: float) -> float:
+        assert range_lb < range_ub, "Lower bound must be less than upper bound."
+        if np.isfinite(range_lb) and np.isfinite(range_ub):
+            return (range_lb + range_ub) / 2
+        elif np.isfinite(range_lb):
+            return range_lb + 1.
+        elif np.isfinite(range_ub):
+            return range_ub - 1.
+        else:
+            return 0.
+
     def _validate_vertex_distributions(self, vertex_2_distrib: Optional[Union[Dict[int, rv_frozen], rv_frozen]] = None
                                        )-> None:
         """Initialize vertex distributions using the distribution family and base parameters 
         specified during initialization.
         """
         self.distrib_param_names = list(self.distrib_params_2_range.keys())
-        self.base_distrib_params = tuple((low + high) / 2 for low, high in self.distrib_params_2_range.values())
+        self.base_distrib_params = tuple(self._make_base_distrib_param(lb, ub) 
+                                         for lb, ub in self.distrib_params_2_range.values())
         self.vertex_2_distrib = {vertex: self._make_distrib(self.base_distrib_params) 
                                  for vertex in self.graph.get_vertices()}
     
